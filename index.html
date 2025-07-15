@@ -23,12 +23,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.2/dist/umd/supabase.js"></script>
 
   <script>
-    // 🔐 Supabase config (replace with your values)
-
+    // 🔐 Supabase config (DO NOT change values, per your request)
     const supabaseUrl = 'https://wahpazhuuibnbsomygog.supabase.co';
     const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhaHBhemh1dWlibmJzb215Z29nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1OTExMjgsImV4cCI6MjA2ODE2NzEyOH0.uqpil2wlVzsZxKI7lPXVY82CcmEreKTCcNJEfA5Vh5A';
-    
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // ✅ Fixed line: use correct variable names
+    const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
 
     // 🗺️ Initialize Leaflet map
     const map = L.map('map').setView([12.9716, 77.5946], 13); // Bengaluru
@@ -71,7 +71,7 @@
           return;
         }
 
-        const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/photos/${filename}`;
+        const imageUrl = `${supabaseUrl}/storage/v1/object/public/photos/${filename}`;
 
         const { error: insertError } = await supabase.from('photos').insert({
           image_url: imageUrl,
