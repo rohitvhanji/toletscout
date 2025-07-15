@@ -1,45 +1,46 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Leaflet + Supabase</title>
+  <title>Leaflet + Supabase Photo Mapper</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
     body { font-family: sans-serif; margin: 20px; }
     #map { height: 500px; width: 100%; margin-top: 10px; }
-    #preview { max-width: 200px; margin-top: 10px; }
+    #preview { max-width: 200px; margin-top: 10px; display: block; }
   </style>
 </head>
 <body>
-  <h2>📸 Upload Photo with Location</h2>
+  <h2>📸 Upload Photo + Tag on OpenStreetMap</h2>
   <input type="file" id="photoInput" accept="image/*" />
   <button onclick="uploadAndTag()">Upload & Tag on Map</button>
   <img id="preview" />
-
   <div id="map"></div>
 
+  <!-- JS Libraries -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.2/+esm"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.2/dist/umd/supabase.js"></script>
 
-  <script type="module">
-    const map = L.map('map').setView([12.9716, 77.5946], 13);
+  <script>
+    // 🔐 Supabase config (replace with your values)
 
+    const supabaseUrl = 'https://wahpazhuuibnbsomygog.supabase.co';
+    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhaHBhemh1dWlibmJzb215Z29nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1OTExMjgsImV4cCI6MjA2ODE2NzEyOH0.uqpil2wlVzsZxKI7lPXVY82CcmEreKTCcNJEfA5Vh5A';
+    
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    // 🗺️ Initialize Leaflet map
+    const map = L.map('map').setView([12.9716, 77.5946], 13); // Bengaluru
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    const supabaseUrl = 'https://wahpazhuuibnbsomygog.supabase.co';
-    const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndhaHBhemh1dWlibmJzb215Z29nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI1OTExMjgsImV4cCI6MjA2ODE2NzEyOH0.uqpil2wlVzsZxKI7lPXVY82CcmEreKTCcNJEfA5Vh5A';
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    // Load existing markers
+    // 📍 Load existing markers on startup
     async function loadMarkers() {
       const { data, error } = await supabase.from('photos').select('*');
-      if (error) {
-        console.error('Error loading markers:', error);
-        return;
-      }
+      if (error) return console.error('Load error:', error);
+
       data.forEach(entry => {
         L.marker([entry.latitude, entry.longitude]).addTo(map)
           .bindPopup(`<img src="${entry.image_url}" width="150"/>`);
@@ -48,19 +49,16 @@
 
     loadMarkers();
 
-    window.uploadAndTag = async function () {
+    // 📸 Upload photo + tag location
+    async function uploadAndTag() {
       const fileInput = document.getElementById('photoInput');
       const file = fileInput.files[0];
-      if (!file) {
-        alert('Select a photo first');
-        return;
-      }
+      if (!file) return alert('Please select a photo.');
 
       navigator.geolocation.getCurrentPosition(async function(pos) {
         const lat = pos.coords.latitude;
         const lng = pos.coords.longitude;
 
-        // Upload photo
         const filename = `${Date.now()}-${file.name}`;
         const { data: uploadData, error: uploadError } = await supabase
           .storage
@@ -69,12 +67,12 @@
 
         if (uploadError) {
           console.error('Upload failed:', uploadError);
+          alert('Failed to upload photo.');
           return;
         }
 
-        const imageUrl = `${supabaseUrl}/storage/v1/object/public/photos/${filename}`;
+        const imageUrl = `${SUPABASE_URL}/storage/v1/object/public/photos/${filename}`;
 
-        // Store location + image in DB
         const { error: insertError } = await supabase.from('photos').insert({
           image_url: imageUrl,
           latitude: lat,
@@ -82,10 +80,12 @@
         });
 
         if (insertError) {
-          console.error('Insert error:', insertError);
+          console.error('DB insert error:', insertError);
+          alert('Failed to save location.');
           return;
         }
 
+        // ✅ Add marker to map
         L.marker([lat, lng]).addTo(map)
           .bindPopup(`<img src="${imageUrl}" width="150"/>`)
           .openPopup();
@@ -93,9 +93,9 @@
         map.setView([lat, lng], 15);
         document.getElementById('preview').src = imageUrl;
       }, function(err) {
-        alert("Location not available: " + err.message);
+        alert('Location error: ' + err.message);
       });
-    };
+    }
   </script>
 </body>
 </html>
