@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Photo + Location Tagger</title>
+  <meta charset="utf-8" />
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #map { height: 500px; width: 100%; margin-top: 20px; }
+    #photo-preview { margin-top: 10px; max-width: 200px; max-height: 200px; }
+  </style>
+</head>
+<body>
+  <h2>📍 Photo & Location Tagger</h2>
+  <input type="file" id="photo" accept="image/*" /><br/>
+  <button onclick="addPhotoMarker()">Add to Map</button>
+  <div id="photo-preview"></div>
+  <div id="map"></div>
+
+  <script>
+    let map;
+    let markers = [];
+
+    function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 12.9716, lng: 77.5946 }, // default: Bengaluru
+        zoom: 12,
+      });
+    }
+
+    function addPhotoMarker() {
+      const fileInput = document.getElementById("photo");
+      const file = fileInput.files[0];
+      if (!file) return alert("Please select a photo.");
+
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        const imageUrl = e.target.result;
+
+        navigator.geolocation.getCurrentPosition(function (position) {
+          const lat = position.coords.latitude;
+          const lng = position.coords.longitude;
+
+          const marker = new google.maps.Marker({
+            position: { lat, lng },
+            map: map,
+          });
+
+          const infoWindow = new google.maps.InfoWindow({
+            content: `<img src="${imageUrl}" width="150" />`,
+          });
+
+          marker.addListener("click", () => infoWindow.open(map, marker));
+          markers.push({ imageUrl, lat, lng });
+          map.setCenter({ lat, lng });
+
+          document.getElementById("photo-preview").innerHTML =
+            `<p>📷 Tagged at (${lat.toFixed(4)}, ${lng.toFixed(4)})</p>` +
+            `<img src="${imageUrl}" width="150" />`;
+        });
+      };
+
+      reader.readAsDataURL(file);
+    }
+  </script>
+
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC8yQT7bKrP-ASq-04kcYgXaYJwOOC9uMc&callback=initMap">
+  </script>
+</body>
+</html>
