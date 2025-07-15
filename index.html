@@ -1,53 +1,101 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Leaflet Map</title>
+  <title>Leaflet + Supabase</title>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    #map { height: 500px; width: 100%; }
     body { font-family: sans-serif; margin: 20px; }
+    #map { height: 500px; width: 100%; margin-top: 10px; }
+    #preview { max-width: 200px; margin-top: 10px; }
   </style>
 </head>
 <body>
-  <h2>📍 OpenStreetMap via Leaflet</h2>
-  <button onclick="addUserMarker()">Add My Location</button>
+  <h2>📸 Upload Photo with Location</h2>
+  <input type="file" id="photoInput" accept="image/*" />
+  <button onclick="uploadAndTag()">Upload & Tag on Map</button>
+  <img id="preview" />
+
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script>
-    const map = L.map('map').setView([12.9716, 77.5946], 13); // Bengaluru
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.42.2/+esm"></script>
+
+  <script type="module">
+    const map = L.map('map').setView([12.9716, 77.5946], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
     }).addTo(map);
 
-    function addUserMarker() {
-      if (!navigator.geolocation) {
-        alert("Geolocation not supported.");
+    const supabaseUrl = 'https://YOUR_PROJECT_ID.supabase.co';
+    const supabaseKey = 'YOUR_PUBLIC_ANON_KEY';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Load existing markers
+    async function loadMarkers() {
+      const { data, error } = await supabase.from('photos').select('*');
+      if (error) {
+        console.error('Error loading markers:', error);
+        return;
+      }
+      data.forEach(entry => {
+        L.marker([entry.latitude, entry.longitude]).addTo(map)
+          .bindPopup(`<img src="${entry.image_url}" width="150"/>`);
+      });
+    }
+
+    loadMarkers();
+
+    window.uploadAndTag = async function () {
+      const fileInput = document.getElementById('photoInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('Select a photo first');
         return;
       }
 
-      navigator.geolocation.getCurrentPosition(
-        function(pos) {
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
+      navigator.geolocation.getCurrentPosition(async function(pos) {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
 
-          L.marker([lat, lng]).addTo(map)
-            .bindPopup("You are here!")
-            .openPopup();
+        // Upload photo
+        const filename = `${Date.now()}-${file.name}`;
+        const { data: uploadData, error: uploadError } = await supabase
+          .storage
+          .from('photos')
+          .upload(filename, file);
 
-          map.setView([lat, lng], 15);
-        },
-        function(err) {
-          alert("Failed to get location: " + err.message);
+        if (uploadError) {
+          console.error('Upload failed:', uploadError);
+          return;
         }
-      );
-    }
+
+        const imageUrl = `${supabaseUrl}/storage/v1/object/public/photos/${filename}`;
+
+        // Store location + image in DB
+        const { error: insertError } = await supabase.from('photos').insert({
+          image_url: imageUrl,
+          latitude: lat,
+          longitude: lng
+        });
+
+        if (insertError) {
+          console.error('Insert error:', insertError);
+          return;
+        }
+
+        L.marker([lat, lng]).addTo(map)
+          .bindPopup(`<img src="${imageUrl}" width="150"/>`)
+          .openPopup();
+
+        map.setView([lat, lng], 15);
+        document.getElementById('preview').src = imageUrl;
+      }, function(err) {
+        alert("Location not available: " + err.message);
+      });
+    };
   </script>
 </body>
 </html>
